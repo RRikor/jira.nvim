@@ -36,15 +36,16 @@ function M.printResults()
     local body = M.getSprintIssues()
     local issues = {}
 
-    bla = body.issues[4]
-    -- for i, data in ipairs(bla) do
-    --     print(i)
-        -- print(vim.inspect(bla))
-        table.insert(bla, M.setIssue(data))
-    -- end
+    for _, data in ipairs(body.issues) do
 
+        local bla = M.setIssue(data)
+
+        table.insert(issues,bla)
+
+    end
+
+    print(vim.inspect(issues[5]))
 end
-
 
 local Issue = {}
 Issue.__index = Issue
@@ -65,22 +66,30 @@ end
 
 function M.setIssue(data)
 
-    local assignee = ""
-    print(vim.inspect(data.fields.assignee))
-    if data.fields.assignee == vim.NIL then
-        print("yes")
-        assignee = ""
-    else
-        assignee = data.fields.assignee.displayName
+    local key = data.key
+    local id = data.id
+    local summary = data.fields.summary
+
+    local description = data.fields.description
+    if description == vim.NIL then
+        description = "None"
     end
 
+    local assignee = ""
+    if data.assignee == nil then
+        assignee = 'None'
+    else
+        assignee = data.assignee.displayName
+    end
+    local status = data.fields.status.name
+
     return Issue:new{
-        key = data.key,
-        id = data.id,
-        summary = data.fields.summary,
-        description = data.fields.description,
+        key = key,
+        id = id,
+        summary = summary,
+        description = description,
         assignee = assignee,
-        status = data.fields.status.name,
+        status = status
     }
 
 end
