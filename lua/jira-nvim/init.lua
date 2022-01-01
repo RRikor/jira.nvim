@@ -13,7 +13,7 @@ function M.getSprintIssues()
 
     local jql = {
         jql = "project = SEE and Sprint in openSprints()",
-        fields = {"summary", "description", "assignee", "status"}
+        fields = {"summary", "description", "assignee", "status", "subtasks"}
     }
 
     local resp = curl.request {
@@ -51,12 +51,22 @@ function M.printResults()
         for key, data in pairs(v) do
 
             local str = key .. " - " .. data.summary
+            local endstr = vim.fn.len(str)
+            vim.cmd("let spaces = repeat(' ', " .. 75 - endstr .. ")")
+            str = str .. vim.g.spaces .. data.status
+
             table.insert(lines, str)
+
+            -- if data.subtasks ~= "None" then
+                -- print(vim.inspect(data.subtasks))
+                -- str = "    " .. data.subtasks.key .. " - " 
+                -- table.insert(lines, str)
+            -- end
         end
     end
 
-    M.open_window(lines)
-    M.set_mappings()
+    -- M.open_window(lines)
+    -- M.set_mappings()
 
 end
 
@@ -77,13 +87,27 @@ function M.setIssue(data)
     end
     local status = data.fields.status.name
 
+    -- TODO: HIer gebleven. Waar zijn die subtasks heen? ook door loopen met ipairs?
+    print(vim.inspect(data.subtasks))
+
+    -- local subtasks = {}
+    -- if data.subtasks == nil then
+    --     table.insert(subtasks, {"None"})
+    -- else
+    --     print(vim.inspect(data.subtasks))
+    --     table.insert(subtasks, {
+    --         data.subtasks.key, data.subtasks.id, data.subtasks.summary
+    --     })
+    -- end
+
     local issue = {}
     issue[key] = {
         id = id,
         summary = summary,
         description = description,
         assignee = assignee,
-        status = status
+        status = status,
+        -- subtasks = subtasks
     }
 
     return issue
@@ -132,6 +156,7 @@ function M.open_description()
                 vim.api.nvim_win_set_buf(win, buf)
                 vim.api.nvim_buf_set_lines(buf, 0, 0, false, splits)
                 vim.api.nvim_win_set_cursor(win, {1, 0})
+                vim.wo.wrap = true
                 vim.api.nvim_buf_set_keymap(0, 'n', 'q',
                                             ':lua vim.api.nvim_win_close(' ..
                                                 win ..
