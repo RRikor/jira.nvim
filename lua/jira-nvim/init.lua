@@ -19,7 +19,7 @@ function M.getSprintIssues()
     local resp = curl.request {
         auth = string.format("%s:%s", vim.env.JIRA_API_USER,
                              vim.env.JIRA_API_TOKEN),
-        url = "https://octodevelopment.atlassian.net/rest/api/3/search",
+        url = "https://octodevelopment.atlassian.net/rest/api/2/search",
         method = "post",
         headers = {
             content_type = "application/json",
@@ -47,8 +47,8 @@ function M.printResults()
     -- print(vim.inspect(issues[5]))
 
     local lines = {}
-    for _,v in pairs(Issues) do
-        for key,data in pairs(v) do
+    for _, v in pairs(Issues) do
+        for key, data in pairs(v) do
 
             local str = key .. " - " .. data.summary
             table.insert(lines, str)
@@ -58,23 +58,6 @@ function M.printResults()
     M.open_window(lines)
     M.set_mappings()
 
-end
-
-local Issue = {}
-Issue.__index = Issue
-
-function Issue:new(vars)
-    local this = {
-        key = vars.key,
-        id = vars.id,
-        summary = vars.summary,
-        description = vars.description,
-        assignee = vars.assignee,
-        status = vars.status
-
-    }
-    setmetatable(this, self)
-    return this
 end
 
 function M.setIssue(data)
@@ -105,20 +88,12 @@ function M.setIssue(data)
 
     return issue
 
-    -- return Issue:new{
-    --     key = key,
-    --     id = id,
-    --     summary = summary,
-    --     description = description,
-    --     assignee = assignee,
-    --     status = status
-    -- }
-
 end
 
 function M.open_window(lines)
 
     vim.cmd([[
+        pclose
         keepalt new +setlocal\ previewwindow|setlocal\ buftype=nofile|setlocal\ noswapfile|setlocal\ wrap [Jira]
         setl bufhidden=wipe
         setl buftype=nofile
@@ -136,6 +111,7 @@ function M.open_window(lines)
         exe "normal! gg"
         wincmd P
       ]])
+    vim.cmd('sort')
 
 end
 
@@ -143,12 +119,29 @@ function M.open_description()
 
     local line = vim.fn.getline('.')
     local split = vim.fn.split(line, ' ')[1]
-    print(split)
 
-    for _,v in pairs(Issues) do
+    for _, v in pairs(Issues) do
         for key, data in pairs(v) do
             if key == split then
-                print('hebbes')
+
+                local splits = vim.fn.split(data.description, '\n')
+
+                local buf = vim.api.nvim_create_buf(false, true)
+                vim.cmd('vsplit')
+                local win = vim.api.nvim_get_current_win()
+                vim.api.nvim_win_set_buf(win, buf)
+                vim.api.nvim_buf_set_lines(buf, 0, 0, false, splits)
+                vim.api.nvim_win_set_cursor(win, {1, 0})
+                vim.api.nvim_buf_set_keymap(0, 'n', 'q',
+                                            ':lua vim.api.nvim_win_close(' ..
+                                                win ..
+                                                ', true)<cr> | :wincmd P <cr>',
+                                            {
+                    nowait = true,
+                    noremap = true,
+                    silent = true
+                })
+
             end
         end
     end
