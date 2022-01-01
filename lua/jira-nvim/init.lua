@@ -44,7 +44,6 @@ function M.printResults()
         table.insert(Issues, bla)
 
     end
-    -- print(vim.inspect(issues[5]))
 
     local lines = {}
     for _, v in pairs(Issues) do
@@ -52,21 +51,27 @@ function M.printResults()
 
             local str = key .. " - " .. data.summary
             local endstr = vim.fn.len(str)
-            vim.cmd("let spaces = repeat(' ', " .. 75 - endstr .. ")")
+            vim.cmd("let spaces = repeat(' ', " .. 90 - endstr .. ")")
             str = str .. vim.g.spaces .. data.status
 
             table.insert(lines, str)
 
-            -- if data.subtasks ~= "None" then
-                -- print(vim.inspect(data.subtasks))
-                -- str = "    " .. data.subtasks.key .. " - " 
-                -- table.insert(lines, str)
-            -- end
+            if next(data.subtasks) ~= nil then
+
+                for _, task in ipairs(data.subtasks) do
+                    str = " └  " .. task.key .. " - " .. task.summary
+                    endstr = vim.fn.len(str)
+                    vim.cmd("let spaces = repeat(' ', " .. 92 - endstr .. ")")
+                    str = str .. vim.g.spaces .. data.status
+                    table.insert(lines, str)
+                end
+
+            end
         end
     end
 
-    -- M.open_window(lines)
-    -- M.set_mappings()
+    M.open_window(lines)
+    M.set_mappings()
 
 end
 
@@ -87,18 +92,21 @@ function M.setIssue(data)
     end
     local status = data.fields.status.name
 
-    -- TODO: HIer gebleven. Waar zijn die subtasks heen? ook door loopen met ipairs?
-    print(vim.inspect(data.subtasks))
+    local subtasks = {}
+    if next(data.fields.subtasks) == vim.NIL then
+        table.insert(subtasks, {"None"})
+    else
+        for _, tasks in ipairs(data.fields.subtasks) do
+            table.insert(subtasks, {
+                key = tasks.key,
+                id = tasks.id,
+                summary = tasks.fields.summary,
+                status = tasks.fields.status.name,
+                description = tasks.fields.description
+            })
+        end
 
-    -- local subtasks = {}
-    -- if data.subtasks == nil then
-    --     table.insert(subtasks, {"None"})
-    -- else
-    --     print(vim.inspect(data.subtasks))
-    --     table.insert(subtasks, {
-    --         data.subtasks.key, data.subtasks.id, data.subtasks.summary
-    --     })
-    -- end
+    end
 
     local issue = {}
     issue[key] = {
@@ -107,7 +115,7 @@ function M.setIssue(data)
         description = description,
         assignee = assignee,
         status = status,
-        -- subtasks = subtasks
+        subtasks = subtasks
     }
 
     return issue
@@ -135,7 +143,7 @@ function M.open_window(lines)
         exe "normal! gg"
         wincmd P
       ]])
-    vim.cmd('sort')
+    -- vim.cmd('sort')
 
 end
 
@@ -144,32 +152,42 @@ function M.open_description()
     local line = vim.fn.getline('.')
     local split = vim.fn.split(line, ' ')[1]
 
+    if split == "└" then
+        split = vim.fn.split(line, " ")[3]
+        print(vim.inspect(split))
+    end
+
+    local descr = ""
     for _, v in pairs(Issues) do
         for key, data in pairs(v) do
             if key == split then
-
-                local splits = vim.fn.split(data.description, '\n')
-
-                local buf = vim.api.nvim_create_buf(false, true)
-                vim.cmd('vsplit')
-                local win = vim.api.nvim_get_current_win()
-                vim.api.nvim_win_set_buf(win, buf)
-                vim.api.nvim_buf_set_lines(buf, 0, 0, false, splits)
-                vim.api.nvim_win_set_cursor(win, {1, 0})
-                vim.wo.wrap = true
-                vim.api.nvim_buf_set_keymap(0, 'n', 'q',
-                                            ':lua vim.api.nvim_win_close(' ..
-                                                win ..
-                                                ', true)<cr> | :wincmd P <cr>',
-                                            {
-                    nowait = true,
-                    noremap = true,
-                    silent = true
-                })
-
+                descr = data.description
+            else
+                print(vim.inspect(v.subtasks))
+                -- if next(v.subtasks) ~= nil then
+                -- print(vim.inspect(v.subtasks))
+                -- for key, task in ipairs(v.subtasks) do
+                --     print(vim.inspect(task))
+                -- if key == split then
+                --     descr = task.description
+                -- end
             end
         end
+
     end
+
+    local splits = vim.fn.split(descr, '\n')
+
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.cmd('vsplit')
+    local win = vim.api.nvim_get_current_win()
+    vim.api.nvim_win_set_buf(win, buf)
+    vim.api.nvim_buf_set_lines(buf, 0, 0, false, splits)
+    vim.api.nvim_win_set_cursor(win, {1, 0})
+    vim.wo.wrap = true
+    vim.api.nvim_buf_set_keymap(0, 'n', 'q', ':lua vim.api.nvim_win_close(' ..
+                                    win .. ', true)<cr> | :wincmd P <cr>',
+                                {nowait = true, noremap = true, silent = true})
 
 end
 
