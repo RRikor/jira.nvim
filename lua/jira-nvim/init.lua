@@ -101,7 +101,7 @@ function M.loopThroughIssues(task, type)
     -- Create line string
     local str = ''
     if type == 'task' then
-        str = key .. " - " .. summary 
+        str = key .. " - " .. summary
         vim.cmd("let spaces = repeat(' ', " .. 90 - vim.fn.len(str) .. ")")
         str = str .. vim.g.spaces .. status
         vim.cmd("let spaces = repeat(' ', " .. 110 - vim.fn.len(str) .. ")")
