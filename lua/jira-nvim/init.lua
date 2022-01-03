@@ -59,8 +59,13 @@ function M.createIssueLists(Issues)
         table.insert(Lines, line)
 
         if next(task.fields.subtasks) ~= vim.NIL then
-            for _, subtask in ipairs(task.fields.subtasks) do
-                line = M.loopThroughIssues(subtask, 'subtask')
+            for i, subtask in ipairs(task.fields.subtasks) do
+                if i == table.maxn(task.fields.subtasks) then
+                    line = M.loopThroughIssues(subtask, 'last_subtask')
+                else
+                    line = M.loopThroughIssues(subtask, 'subtask')
+                end
+
                 table.insert(Lines, line)
             end
         end
@@ -96,15 +101,23 @@ function M.loopThroughIssues(task, type)
     -- Create line string
     local str = ''
     if type == 'task' then
-        str = key .. " - " .. summary .. "(" .. assignee .. ")"
-        local endstr = vim.fn.len(str)
-        vim.cmd("let spaces = repeat(' ', " .. 90 - endstr .. ")")
+        str = key .. " - " .. summary 
+        vim.cmd("let spaces = repeat(' ', " .. 90 - vim.fn.len(str) .. ")")
         str = str .. vim.g.spaces .. status
+        vim.cmd("let spaces = repeat(' ', " .. 110 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. assignee
     elseif type == 'subtask' then
-        str = " └  " .. key .. " - " .. summary
-        local endstr = vim.fn.len(str)
-        vim.cmd("let spaces = repeat(' ', " .. 92 - endstr .. ")")
+        str = " │ " .. key .. " - " .. summary
+        vim.cmd("let spaces = repeat(' ', " .. 92 - vim.fn.len(str) .. ")")
         str = str .. vim.g.spaces .. status
+        vim.cmd("let spaces = repeat(' ', " .. 112 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. assignee
+    elseif type == 'last_subtask' then
+        str = " └ " .. key .. " - " .. summary
+        vim.cmd("let spaces = repeat(' ', " .. 92 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. status
+        vim.cmd("let spaces = repeat(' ', " .. 112 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. assignee
     end
 
     -- Populate dictionary
@@ -152,7 +165,6 @@ function M.open_description()
 
     if split == "└" then
         split = vim.fn.split(line, " ")[3]
-        print(vim.inspect(split))
     end
 
     local descr = ""
@@ -171,6 +183,7 @@ function M.open_description()
     vim.api.nvim_buf_set_lines(buf, 0, 0, false, splits)
     vim.api.nvim_win_set_cursor(win, {1, 0})
     vim.wo.wrap = true
+    vim.cmd[[set syntax=markdown]]
     vim.api.nvim_buf_set_keymap(0, 'n', 'q', ':lua vim.api.nvim_win_close(' ..
                                     win .. ', true)<cr> | :wincmd P <cr>',
                                 {nowait = true, noremap = true, silent = true})
