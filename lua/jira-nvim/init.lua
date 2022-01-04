@@ -7,6 +7,9 @@ local curl = require('plenary.curl')
 -- Floating window:
 -- https://www.2n.pl/blog/how-to-write-neovim-plugins-in-lua
 
+-- Async examples:
+-- https://github.com/smolck/nvim-todoist.lua/blob/2389aedf9831351433ab3806142b1e7e5dbddd22/lua/nvim-todoist/api.lua
+
 M = {}
 
 function M.getSprintIssues()
@@ -141,6 +144,7 @@ function M.open_window(lines)
         setl buftype=nofile
         setl noswapfile
         setl nobuflisted
+        setl nowrap
         setl nospell
         exe 'setl filetype=text'
         setl conceallevel=0
