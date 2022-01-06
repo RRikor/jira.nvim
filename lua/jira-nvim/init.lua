@@ -196,11 +196,51 @@ end
 
 function M.close_window() vim.cmd('pclose') end
 
+function M.get_issue_under_cursor()
+
+    local line = vim.fn.getline('.')
+    local split = vim.fn.split(line, ' ')[1]
+
+    if split == "└" or split == '│' then
+        split = vim.fn.split(line, " ")[2]
+    end
+
+    for key, _ in pairs(FlatIssues) do
+        if key == split then
+            return key, FlatIssues[key]
+        end
+    end
+end
+
+function M.create_or_switch_git_branch()
+
+    local key, issue = M.get_issue_under_cursor()
+
+    local branch = key .. '-' ..  vim.fn.substitute(issue['summary'], ' ', '-', 'g')
+
+    -- Check if branch name exists already. If it does, switch to it. Else, create it.
+    local cmd = ""
+    vim.fn.jobstart(string.format('git rev-parse --verify ' .. branch), {
+        stdout_buffered = true,
+        on_stdout = function(_, data, _)
+            -- print(vim.inspect(data))
+
+            if data[1] == "" then
+                cmd = 'Git checkout -B ' .. branch
+            else
+                cmd = 'Git checkout ' .. branch
+            end
+        vim.cmd(cmd)
+        end
+    })
+end
+
 function M.set_mappings()
     local mappings = {
         ['<cr>'] = 'open_description()',
         o = 'open_description()',
-        q = 'close_window()'
+        q = 'close_window()',
+        gb = 'create_or_switch_git_branch()'
     }
 
     for k, v in pairs(mappings) do
