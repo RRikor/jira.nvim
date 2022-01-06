@@ -219,7 +219,6 @@ function M.create_or_switch_git_branch()
     local branch = key .. '-' ..  vim.fn.substitute(issue['summary'], ' ', '-', 'g')
 
     -- Check if branch name exists already. If it does, switch to it. Else, create it.
-    local cmd = ""
     vim.fn.jobstart(string.format('git rev-parse --verify ' .. branch), {
         stdout_buffered = true,
         on_stdout = function(_, data, _)
