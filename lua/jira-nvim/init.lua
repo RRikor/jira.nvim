@@ -226,11 +226,11 @@ function M.create_or_switch_git_branch()
             -- print(vim.inspect(data))
 
             if data[1] == "" then
-                cmd = 'Git checkout -B ' .. branch
+                vim.cmd('Git checkout -B ' .. branch)
+                vim.cmd('Git push --set-upstream origin ' .. branch)
             else
-                cmd = 'Git checkout ' .. branch
+                vim.cmd('Git checkout ' .. branch)
             end
-        vim.cmd(cmd)
         end
     })
 end
