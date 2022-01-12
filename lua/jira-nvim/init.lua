@@ -10,9 +10,9 @@ local curl = require('plenary.curl')
 -- Async examples:
 -- https://github.com/smolck/nvim-todoist.lua/blob/2389aedf9831351433ab3806142b1e7e5dbddd22/lua/nvim-todoist/api.lua
 
-M = {}
+local Jira = {}
 
-function M.getSprintIssues()
+function Jira.getSprintIssues()
 
     local jql = {
         jql = "project = SEE and Sprint in openSprints()",
@@ -37,36 +37,37 @@ function M.getSprintIssues()
 end
 
 Issues = {}
-function M.printResults()
+function Jira.open()
 
     -- Retrieving issues from JIra ApI
-    local body = M.getSprintIssues()
+    local body = Jira.getSprintIssues()
     Issues = body.issues
 
     -- This will fill the global FlatIssues, a table of all issues
     -- flattened out for easy searching
     -- This also returns lines to be displayed in the preview window
-    M.createIssueLists(Issues)
+    Jira.createIssueLists(Issues)
 
-    M.open_window(Lines)
-    M.set_mappings()
+    Jira.render_window(Lines)
+    Jira.set_mappings()
 
 end
 
+
 FlatIssues = {}
 Lines = {}
-function M.createIssueLists(Issues)
+function Jira.createIssueLists(Issues)
 
     for _, task in ipairs(Issues) do
-        local line = M.loopThroughIssues(task, 'task')
+        local line = Jira.loopThroughIssues(task, 'task')
         table.insert(Lines, line)
 
         if next(task.fields.subtasks) ~= vim.NIL then
             for i, subtask in ipairs(task.fields.subtasks) do
                 if i == table.maxn(task.fields.subtasks) then
-                    line = M.loopThroughIssues(subtask, 'last_subtask')
+                    line = Jira.loopThroughIssues(subtask, 'last_subtask')
                 else
-                    line = M.loopThroughIssues(subtask, 'subtask')
+                    line = Jira.loopThroughIssues(subtask, 'subtask')
                 end
 
                 table.insert(Lines, line)
@@ -75,7 +76,7 @@ function M.createIssueLists(Issues)
     end
 end
 
-function M.loopThroughIssues(task, type)
+function Jira.loopThroughIssues(task, type)
 
     -- Pick up necessary fields
     local key = task.key
@@ -135,7 +136,7 @@ function M.loopThroughIssues(task, type)
     return str
 end
 
-function M.open_window(lines)
+function Jira.render_window(lines)
 
     vim.cmd([[
         pclose
@@ -162,7 +163,7 @@ function M.open_window(lines)
 
 end
 
-function M.open_description()
+function Jira.get_description()
 
     local line = vim.fn.getline('.')
     local split = vim.fn.split(line, ' ')[1]
@@ -194,9 +195,9 @@ function M.open_description()
 
 end
 
-function M.close_window() vim.cmd('pclose') end
+function Jira.close_window() vim.cmd('pclose') end
 
-function M.get_issue_under_cursor()
+function Jira.get_issue_under_cursor()
 
     local line = vim.fn.getline('.')
     local split = vim.fn.split(line, ' ')[1]
@@ -212,9 +213,9 @@ function M.get_issue_under_cursor()
     end
 end
 
-function M.create_or_switch_git_branch()
+function Jira.create_or_switch_git_branch()
 
-    local key, issue = M.get_issue_under_cursor()
+    local key, issue = Jira.get_issue_under_cursor()
 
     local branch = key .. '-' ..  vim.fn.substitute(issue['summary'], ' ', '-', 'g')
 
@@ -234,7 +235,7 @@ function M.create_or_switch_git_branch()
     })
 end
 
-function M.set_mappings()
+function Jira.set_mappings()
     local mappings = {
         ['<cr>'] = 'open_description()',
         o = 'open_description()',
@@ -253,5 +254,5 @@ function M.set_mappings()
     end
 end
 
-return M
+return Jira
 
