@@ -11,36 +11,13 @@ local curl = require('plenary.curl')
 -- https://github.com/smolck/nvim-todoist.lua/blob/2389aedf9831351433ab3806142b1e7e5dbddd22/lua/nvim-todoist/api.lua
 
 local Jira = {}
-
-function Jira.getSprintIssues()
-
-    local jql = {
-        jql = "project = SEE and Sprint in openSprints()",
-        fields = {"summary", "description", "assignee", "status", "subtasks"}
-    }
-
-    local resp = curl.request {
-        auth = string.format("%s:%s", vim.env.JIRA_API_USER,
-                             vim.env.JIRA_API_TOKEN),
-        url = "https://octodevelopment.atlassian.net/rest/api/2/search",
-        method = "post",
-        headers = {
-            content_type = "application/json",
-            accept = "application/json"
-        },
-        body = vim.fn.json_encode(jql),
-        dry_run = false
-    }
-
-    return vim.fn.json_decode(resp.body)
-
-end
+local api = require('jira-nvim.api')
 
 Issues = {}
 function Jira.open()
 
     -- Retrieving issues from JIra ApI
-    local body = Jira.getSprintIssues()
+    local body = api.getSprintIssues()
     Issues = body.issues
 
     -- This will fill the global FlatIssues, a table of all issues
@@ -58,16 +35,20 @@ FlatIssues = {}
 Lines = {}
 function Jira.createIssueLists(Issues)
 
-    for _, task in ipairs(Issues) do
-        local line = Jira.loopThroughIssues(task, 'task')
+    for _, issue in ipairs(Issues) do
+        local line = Jira.parseIssue(issue)
+
+        line = Jira.create_line_string(issue.key, FlatIssues[issue.key], 'issue')
         table.insert(Lines, line)
 
-        if next(task.fields.subtasks) ~= vim.NIL then
-            for i, subtask in ipairs(task.fields.subtasks) do
-                if i == table.maxn(task.fields.subtasks) then
-                    line = Jira.loopThroughIssues(subtask, 'last_subtask')
+        if next(issue.fields.subtasks) ~= vim.NIL then
+            for i, subtask in ipairs(issue.fields.subtasks) do
+                if i == table.maxn(issue.fields.subtasks) then
+                    Jira.parseIssue(subtask)
+                    line = Jira.create_line_string(subtask.key, FlatIssues[subtask.key], 'last_subtask')
                 else
-                    line = Jira.loopThroughIssues(subtask, 'subtask')
+                    Jira.parseIssue(subtask)
+                    line = Jira.create_line_string(subtask.key, FlatIssues[subtask.key], 'subtask')
                 end
 
                 table.insert(Lines, line)
@@ -76,53 +57,29 @@ function Jira.createIssueLists(Issues)
     end
 end
 
-function Jira.loopThroughIssues(task, type)
+-- This loops through a single issue
+function Jira.parseIssue(issue)
 
     -- Pick up necessary fields
-    local key = task.key
-    local id = task.id
+    local key = issue.key
+    local id = issue.id
 
-    local summary = task.fields.summary
-    if task.fields.summary == nil then
+    local summary = issue.fields.summary
+    if issue.fields.summary == nil then
         summary = ''
     end
 
-    -- TODO: In subtasks, the description field in the api is empty, but there
-    -- is still a description filled in? Example: SEE-446
-    -- How to retrieve description of a subtask?
-    local description = task.fields.description
+    local description = issue.fields.description
     if description == vim.NIL then description = "None" end
 
     local assignee = ""
-    if task.fields.assignee == nil or task.fields.assignee == vim.NIL then
+    if issue.fields.assignee == nil or issue.fields.assignee == vim.NIL then
         assignee = ""
     else
-        assignee = task.fields.assignee.displayName
+        assignee = issue.fields.assignee.displayName
     end
 
-    local status = task.fields.status.name
-
-    -- Create line string
-    local str = ''
-    if type == 'task' then
-        str = key .. " - " .. summary
-        vim.cmd("let spaces = repeat(' ', " .. 90 - vim.fn.len(str) .. ")")
-        str = str .. vim.g.spaces .. status
-        vim.cmd("let spaces = repeat(' ', " .. 110 - vim.fn.len(str) .. ")")
-        str = str .. vim.g.spaces .. assignee
-    elseif type == 'subtask' then
-        str = " │ " .. key .. " - " .. summary
-        vim.cmd("let spaces = repeat(' ', " .. 92 - vim.fn.len(str) .. ")")
-        str = str .. vim.g.spaces .. status
-        vim.cmd("let spaces = repeat(' ', " .. 112 - vim.fn.len(str) .. ")")
-        str = str .. vim.g.spaces .. assignee
-    elseif type == 'last_subtask' then
-        str = " └ " .. key .. " - " .. summary
-        vim.cmd("let spaces = repeat(' ', " .. 92 - vim.fn.len(str) .. ")")
-        str = str .. vim.g.spaces .. status
-        vim.cmd("let spaces = repeat(' ', " .. 112 - vim.fn.len(str) .. ")")
-        str = str .. vim.g.spaces .. assignee
-    end
+    local status = issue.fields.status.name
 
     -- Populate dictionary
     FlatIssues[key] = {
@@ -133,8 +90,36 @@ function Jira.loopThroughIssues(task, type)
         status = status
     }
 
+end
+
+function Jira.create_line_string(key, issue, type)
+
+    -- Create line string
+    local str = ''
+    if type == 'issue' then
+        str = key .. " - " .. issue.summary
+        vim.cmd("let spaces = repeat(' ', " .. 90 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. issue.status
+        vim.cmd("let spaces = repeat(' ', " .. 110 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. issue.assignee
+    elseif type == 'subtask' then
+        str = " │ " .. key .. " - " .. issue.summary
+        vim.cmd("let spaces = repeat(' ', " .. 92 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. issue.status
+        vim.cmd("let spaces = repeat(' ', " .. 112 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. issue.assignee
+    elseif type == 'last_subtask' then
+        str = " └ " .. key .. " - " .. issue.summary
+        vim.cmd("let spaces = repeat(' ', " .. 92 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. issue.status
+        vim.cmd("let spaces = repeat(' ', " .. 112 - vim.fn.len(str) .. ")")
+        str = str .. vim.g.spaces .. issue.assignee
+    end
+    
+
     return str
 end
+
 
 function Jira.render_window(lines)
 
@@ -163,19 +148,41 @@ function Jira.render_window(lines)
 
 end
 
+function Jira.get_more_info(key)
+
+    print('bla')
+
+    local issue = api.getIssue(key)
+    Jira.parseIssue(issue)
+
+    return FlatIssues[key].description
+
+end
+
+
 function Jira.get_description()
+
 
     local line = vim.fn.getline('.')
     local split = vim.fn.split(line, ' ')[1]
 
     if split == "└" then
-        split = vim.fn.split(line, " ")[3]
+        split = vim.fn.split(line, " ")[2]
+    elseif split == "│" then
+        split = vim.fn.split(line, " ")[2]
     end
 
     local descr = ""
     for key, value in pairs(FlatIssues) do
         if key == split then
-            descr = value.description
+
+            -- Descriptions of subtasks are empty when querying the /search endpoint
+            -- These we have to search at the individual level
+            if value.description == nil or "" then
+                descr = Jira.get_more_info(key)
+            else
+                descr = value.description
+            end
         end
     end
 
@@ -237,8 +244,8 @@ end
 
 function Jira.set_mappings()
     local mappings = {
-        ['<cr>'] = 'open_description()',
-        o = 'open_description()',
+        ['<cr>'] = 'get_description()',
+        o = 'get_description()',
         q = 'close_window()',
         gb = 'create_or_switch_git_branch()'
     }
