@@ -30,7 +30,6 @@ function Jira.open()
 
 end
 
-
 FlatIssues = {}
 Lines = {}
 function Jira.createIssueLists(Issues)
@@ -38,17 +37,22 @@ function Jira.createIssueLists(Issues)
     for _, issue in ipairs(Issues) do
         local line = Jira.parseIssue(issue)
 
-        line = Jira.create_line_string(issue.key, FlatIssues[issue.key], 'issue')
+        line =
+            Jira.create_line_string(issue.key, FlatIssues[issue.key], 'issue')
         table.insert(Lines, line)
 
         if next(issue.fields.subtasks) ~= vim.NIL then
             for i, subtask in ipairs(issue.fields.subtasks) do
                 if i == table.maxn(issue.fields.subtasks) then
                     Jira.parseIssue(subtask)
-                    line = Jira.create_line_string(subtask.key, FlatIssues[subtask.key], 'last_subtask')
+                    line = Jira.create_line_string(subtask.key,
+                                                   FlatIssues[subtask.key],
+                                                   'last_subtask')
                 else
                     Jira.parseIssue(subtask)
-                    line = Jira.create_line_string(subtask.key, FlatIssues[subtask.key], 'subtask')
+                    line = Jira.create_line_string(subtask.key,
+                                                   FlatIssues[subtask.key],
+                                                   'subtask')
                 end
 
                 table.insert(Lines, line)
@@ -65,12 +69,10 @@ function Jira.parseIssue(issue)
     local id = issue.id
 
     local summary = issue.fields.summary
-    if issue.fields.summary == nil then
-        summary = ''
-    end
+    if issue.fields.summary == nil then summary = '' end
 
     local description = issue.fields.description
-    if description == vim.NIL then description = "None" end
+    if description == vim.NIL then description = "No description" end
 
     local assignee = ""
     if issue.fields.assignee == nil or issue.fields.assignee == vim.NIL then
@@ -81,15 +83,46 @@ function Jira.parseIssue(issue)
 
     local status = issue.fields.status.name
 
+    local comments = ""
+    if Jira.tableHasKey(issue.fields, 'comment') then
+        comments = Jira.parseComments(issue.fields.comment.comments)
+    end
+
+    local reporter = ""
+    if issue.fields.reporter == nil or issue.fields.reporter == vim.NIL then
+        reporter = ""
+    else
+        reporter = "Reporter: " .. issue.fields.reporter.displayName
+    end
+
     -- Populate dictionary
     FlatIssues[key] = {
         id = id,
         summary = summary,
-        description = description,
+        description = vim.fn.split(description, '\n'),
         assignee = assignee,
-        status = status
+        status = status,
+        comments = comments,
+        reporter = reporter
     }
 
+end
+
+function Jira.parseComments(comments)
+
+    local list = {}
+    table.insert(list, "")
+    table.insert(list, "=======Comments=======")
+    for _, comment in ipairs(comments) do
+        local body = vim.fn.split(comment.body, '\n')
+        list = Jira.TableConcat(list, body)
+
+        table.insert(list, comment.author.displayName .. " | " .. comment.created)
+        table.insert(list, "-----------------")
+        table.insert(list, "")
+    end
+
+    return list
 end
 
 function Jira.create_line_string(key, issue, type)
@@ -115,11 +148,9 @@ function Jira.create_line_string(key, issue, type)
         vim.cmd("let spaces = repeat(' ', " .. 112 - vim.fn.len(str) .. ")")
         str = str .. vim.g.spaces .. issue.assignee
     end
-    
 
     return str
 end
-
 
 function Jira.render_window(lines)
 
@@ -150,18 +181,12 @@ end
 
 function Jira.get_more_info(key)
 
-    print('bla')
-
     local issue = api.getIssue(key)
     Jira.parseIssue(issue)
 
-    return FlatIssues[key].description
-
 end
 
-
 function Jira.get_description()
-
 
     local line = vim.fn.getline('.')
     local split = vim.fn.split(line, ' ')[1]
@@ -172,30 +197,27 @@ function Jira.get_description()
         split = vim.fn.split(line, " ")[2]
     end
 
-    local descr = ""
+    Jira.get_more_info(split)
+
+    local descr = {}
     for key, value in pairs(FlatIssues) do
         if key == split then
+            descr = value.description
+            table.insert(descr, '-----------------')
+            table.insert(descr, value.reporter)
 
-            -- Descriptions of subtasks are empty when querying the /search endpoint
-            -- These we have to search at the individual level
-            if value.description == nil or "" then
-                descr = Jira.get_more_info(key)
-            else
-                descr = value.description
-            end
+            descr = Jira.TableConcat(descr, value.comments)
         end
     end
-
-    local splits = vim.fn.split(descr, '\n')
 
     local buf = vim.api.nvim_create_buf(false, true)
     vim.cmd('vsplit')
     local win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_buf(win, buf)
-    vim.api.nvim_buf_set_lines(buf, 0, 0, false, splits)
+    vim.api.nvim_buf_set_lines(buf, 0, 0, false, descr)
     vim.api.nvim_win_set_cursor(win, {1, 0})
     vim.wo.wrap = true
-    vim.cmd[[set syntax=markdown]]
+    vim.cmd [[set syntax=markdown]]
     vim.api.nvim_buf_set_keymap(0, 'n', 'q', ':lua vim.api.nvim_win_close(' ..
                                     win .. ', true)<cr> | :wincmd P <cr>',
                                 {nowait = true, noremap = true, silent = true})
@@ -214,9 +236,7 @@ function Jira.get_issue_under_cursor()
     end
 
     for key, _ in pairs(FlatIssues) do
-        if key == split then
-            return key, FlatIssues[key]
-        end
+        if key == split then return key, FlatIssues[key] end
     end
 end
 
@@ -224,7 +244,8 @@ function Jira.create_or_switch_git_branch()
 
     local key, issue = Jira.get_issue_under_cursor()
 
-    local branch = key .. '-' ..  vim.fn.substitute(issue['summary'], ' ', '-', 'g')
+    local branch = key .. '-' ..
+                       vim.fn.substitute(issue['summary'], ' ', '-', 'g')
 
     -- Check if branch name exists already. If it does, switch to it. Else, create it.
     vim.fn.jobstart(string.format('git rev-parse --verify ' .. branch), {
@@ -240,6 +261,21 @@ function Jira.create_or_switch_git_branch()
             end
         end
     })
+end
+
+function Jira.tableHasKey(table, key) return table[key] ~= nil end
+
+function Jira.TableConcat(table1, table2)
+
+    local result = {}
+    if table1 ~= nil then
+        for _, row1 in ipairs(table1) do table.insert(result, row1) end
+    end
+
+    if table2 ~= nil then
+        for _, row2 in ipairs(table2) do table.insert(result, row2) end
+    end
+    return result
 end
 
 function Jira.set_mappings()
