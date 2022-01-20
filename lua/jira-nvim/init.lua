@@ -1,4 +1,3 @@
-local curl = require('plenary.curl')
 
 -- Useful resources!
 -- https://github.com/nanotee/nvim-lua-guide
@@ -12,6 +11,7 @@ local curl = require('plenary.curl')
 
 local Jira = {}
 local api = require('jira-nvim.api')
+local util = require('jira-nvim.util')
 
 Issues = {}
 function Jira.open()
@@ -84,7 +84,7 @@ function Jira.parseIssue(issue)
     local status = issue.fields.status.name
 
     local comments = ""
-    if Jira.tableHasKey(issue.fields, 'comment') then
+    if util.TableHasKey(issue.fields, 'comment') then
         comments = Jira.parseComments(issue.fields.comment.comments)
     end
 
@@ -115,7 +115,7 @@ function Jira.parseComments(comments)
     table.insert(list, "=======Comments=======")
     for _, comment in ipairs(comments) do
         local body = vim.fn.split(comment.body, '\n')
-        list = Jira.TableConcat(list, body)
+        list = util.TableConcat(list, body)
 
         table.insert(list, comment.author.displayName .. " | " .. comment.created)
         table.insert(list, "-----------------")
@@ -206,7 +206,7 @@ function Jira.get_description()
             table.insert(descr, '-----------------')
             table.insert(descr, value.reporter)
 
-            descr = Jira.TableConcat(descr, value.comments)
+            descr = util.TableConcat(descr, value.comments)
         end
     end
 
@@ -261,21 +261,6 @@ function Jira.create_or_switch_git_branch()
             end
         end
     })
-end
-
-function Jira.tableHasKey(table, key) return table[key] ~= nil end
-
-function Jira.TableConcat(table1, table2)
-
-    local result = {}
-    if table1 ~= nil then
-        for _, row1 in ipairs(table1) do table.insert(result, row1) end
-    end
-
-    if table2 ~= nil then
-        for _, row2 in ipairs(table2) do table.insert(result, row2) end
-    end
-    return result
 end
 
 function Jira.set_mappings()
