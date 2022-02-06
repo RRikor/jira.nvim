@@ -12,6 +12,9 @@
 local Jira = {}
 local api = require('jira-nvim.api')
 local util = require('jira-nvim.util')
+local View = require('jira-nvim.view')
+local view = {}
+
 
 Issues = {}
 function Jira.open()
@@ -176,8 +179,18 @@ function Jira.render_window(lines)
         res 15
       ]])
     -- vim.cmd('sort')
+end
+
+function Jira.render_window(lines)
+	local opts = {
+        -- TODO: Implement this
+		origin = "original_cursor_position",
+		lines = lines,
+		buf = vim.g.dbbuf,
+	}
 
 end
+
 
 function Jira.get_more_info(key)
 
