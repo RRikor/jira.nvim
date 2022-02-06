@@ -28,7 +28,7 @@ function Jira.open()
     -- This also returns lines to be displayed in the preview window
     Jira.createIssueLists(Issues)
 
-    Jira.render_window(Lines)
+    Jira.render(Lines, 'split')
     Jira.set_mappings()
 
 end
@@ -155,41 +155,47 @@ function Jira.create_line_string(key, issue, type)
     return str
 end
 
-function Jira.render_window(lines)
-
-    vim.cmd([[
-        pclose
-        keepalt new +setlocal\ previewwindow|setlocal\ buftype=nofile|setlocal\ noswapfile|setlocal\ wrap [Jira]
-        setl bufhidden=wipe
-        setl buftype=nofile
-        setl noswapfile
-        setl nobuflisted
-        setl nowrap
-        setl nospell
-        exe 'setl filetype=text'
-        setl conceallevel=0
-        setl nofoldenable
-      ]])
-    vim.api.nvim_buf_set_lines(0, 0, -1, 0, lines)
-
-    vim.cmd('exe "normal! z" .' .. #lines .. '. "\\<cr>"')
-    vim.cmd([[
-        exe "normal! gg"
-        wincmd P
-        res 15
-      ]])
-    -- vim.cmd('sort')
-end
-
-function Jira.render_window(lines)
+function Jira.render(lines, type)
 	local opts = {
         -- TODO: Implement this
 		origin = "original_cursor_position",
 		lines = lines,
-		buf = vim.g.dbbuf,
+		buf = vim.g.jirabuf,
+        type = type
 	}
 
+	view = View:new(opts)
+
+    if type == 'split' then
+        if not Jira.view_valid(vim.g.jirabuf) then
+            view:create_jira_win()
+            view:fill(view.buf, view.win)
+            vim.g.jirabuf = view.buf
+            vim.g.jirawin = view.win
+        else
+            view:fill(vim.g.jirabuf, vim.g.jirawin)
+        end
+    else
+        -- TODO: This is still opening a new window somehow
+        if not Jira.view_valid(vim.g.descrbuf) then
+            view:create_descr_win()
+            view:fill(view.buf_descr, view.win_descr)
+            vim.g.descrbuf = view.buf
+            vim.g.descrwin = view.win
+        else
+            view:fill(vim.g.descrbuf, vim.g.descrwin)
+        end
+    end
+
 end
+
+function Jira.view_valid(buf)
+	if buf then
+		return vim.api.nvim_buf_is_valid(buf)
+	end
+	return false
+end
+
 
 
 function Jira.get_more_info(key)
@@ -223,16 +229,18 @@ function Jira.get_description()
         end
     end
 
-    local buf = vim.api.nvim_create_buf(false, true)
-    vim.cmd('vsplit')
-    local win = vim.api.nvim_get_current_win()
-    vim.api.nvim_win_set_buf(win, buf)
-    vim.api.nvim_buf_set_lines(buf, 0, 0, false, descr)
-    vim.api.nvim_win_set_cursor(win, {1, 0})
-    vim.wo.wrap = true
-    vim.cmd [[set syntax=markdown]]
+    Jira.render(descr, 'vsplit')
+
+    -- local buf = vim.api.nvim_create_buf(false, true)
+    -- vim.cmd('vsplit')
+    -- local win = vim.api.nvim_get_current_win()
+    -- vim.api.nvim_win_set_buf(win, buf)
+    -- vim.api.nvim_buf_set_lines(buf, 0, 0, false, descr)
+    -- vim.api.nvim_win_set_cursor(win, {1, 0})
+    -- vim.wo.wrap = true
+    -- vim.cmd [[set syntax=markdown]]
     vim.api.nvim_buf_set_keymap(0, 'n', 'q', ':lua vim.api.nvim_win_close(' ..
-                                    win .. ', true)<cr> | :wincmd P <cr>',
+                                    view.win_descr .. ', true)<cr> | :wincmd P <cr>',
                                 {nowait = true, noremap = true, silent = true})
 
 end
