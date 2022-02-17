@@ -51,14 +51,16 @@ function Jira.createIssueLists(Issues)
                     line = Jira.create_line_string(subtask.key,
                                                    FlatIssues[subtask.key],
                                                    'last_subtask')
+                    table.insert(Lines, line)
+                    table.insert(Lines, "")
+                    table.insert(Lines, "")
                 else
                     Jira.parseIssue(subtask)
                     line = Jira.create_line_string(subtask.key,
                                                    FlatIssues[subtask.key],
                                                    'subtask')
+                    table.insert(Lines, line)
                 end
-
-                table.insert(Lines, line)
             end
         end
     end
@@ -264,11 +266,18 @@ end
 function Jira.create_or_switch_git_branch()
 
     local key, issue = Jira.get_issue_under_cursor()
+    print("key: ", key)
+    print("issue: ", vim.inspect(issue))
 
-    local branch = key .. '-' ..
-                       vim.fn.substitute(issue['summary'], ' ', '-', 'g')
+    -- We need to have a clean branch name
+    -- This is a really ugly way...
+    local clean_name1 = vim.fn.substitute(issue['summary'], ' ', '-', 'g')
+    local branch = vim.fn.substitute(clean_name1, '[:?]', '', 'g')
 
-    -- Check if branch name exists already. If it does, switch to it. Else, create it.
+    print("branch: ", branch)
+
+
+    -- Check with rev-parse if branch name exists already. If it does, switch to it. Else, create it.
     vim.fn.jobstart(string.format('git rev-parse --verify ' .. branch), {
         stdout_buffered = true,
         on_stdout = function(_, data, _)
