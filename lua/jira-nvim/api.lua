@@ -26,6 +26,25 @@ function api.getSprintIssues()
 
 end
 
+function api.getBacklog()
+
+    local jql = {
+        jql = "project = SEE",
+        fields = {"summary", "description", "assignee", "status", "subtasks"}
+    }
+
+    local resp = curl.request {
+        url = base .. "/search",
+        method = "post",
+        auth = auth,
+        headers = headers,
+        body = vim.fn.json_encode(jql),
+        dry_run = false
+    }
+
+    return vim.fn.json_decode(resp.body)
+end
+
 function api.getIssue(key)
 
     local resp = curl.request{
