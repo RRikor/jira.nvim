@@ -296,6 +296,7 @@ function Jira.create_or_switch_git_branch()
 			-- print(vim.inspect(data))
 
 			if data[1] == "" then
+                Jira._check_develop()
 				vim.cmd("Git checkout -B " .. branch)
 				vim.cmd("Git push --set-upstream origin " .. branch)
 			else
@@ -303,6 +304,23 @@ function Jira.create_or_switch_git_branch()
 			end
 		end,
 	})
+end
+
+function Jira._check_develop(branch)
+
+	vim.fn.jobstart(string.format("git rev-parse --verify develop"), {
+		stdout_buffered = true,
+		on_stdout = function(_, data, _)
+			-- print(vim.inspect(data))
+
+			if data[1] == "" then
+                return
+			else
+				vim.cmd("Git checkout " .. branch)
+			end
+		end,
+	})
+
 end
 
 function Jira.open_in_browser()
