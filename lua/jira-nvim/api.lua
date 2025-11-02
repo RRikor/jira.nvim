@@ -9,7 +9,7 @@ local headers = { content_type = "application/json", accept = "application/json"
 function api.getSprintIssues()
 
     local jql = {
-        jql = "project = SEE and Sprint in openSprints()",
+        jql = "project = INS and Sprint in openSprints()",
         fields = {"summary", "description", "assignee", "status", "subtasks"}
     }
 
@@ -29,7 +29,7 @@ end
 function api.getBacklog()
 
     local jql = {
-        jql = "project = SEE",
+        jql = "project = INS",
         fields = {"summary", "description", "assignee", "status", "subtasks"}
     }
 
